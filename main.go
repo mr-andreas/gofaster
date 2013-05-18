@@ -17,14 +17,18 @@ type Requester struct {
 	// Average response time counted in microseconds
 	averageResponse int
 
+	runtime time.Duration
+
 	client *http.Client
 }
 
 func (r *Requester) start(requestDone chan bool) {
 	r.client = &http.Client{}
+	startTime := time.Now()
 	for {
 		select {
 		case <-r.stopChan:
+			r.runtime = time.Now().Sub(startTime)
 			requestDone <- true
 			return
 
@@ -72,6 +76,7 @@ type RequestSet struct {
 	TotalCount   int
 	SuccessCount int
 	FailCount    int
+	TotalRuntime time.Duration
 
 	AverageResponse time.Duration
 }
@@ -111,9 +116,14 @@ func (rs *RequestSet) run() {
 		rs.TotalCount += req.totalCount
 		rs.FailCount += req.failCount
 		rs.SuccessCount += req.successCount
+		rs.TotalRuntime += req.runtime
 		avgResp += int64(req.averageResponse)
 	}
 	rs.AverageResponse = time.Duration(avgResp/int64(rs.ParallelRequests)) * time.Microsecond
+}
+
+func (rs *RequestSet) SuccessfulRequestsPerSecond() float32 {
+	return float32(rs.SuccessCount) / float32(rs.TotalRuntime/time.Second) * float32(rs.ParallelRequests)
 }
 
 func clearLine() {
@@ -126,7 +136,7 @@ func printStats(rs *RequestSet) {
 	fmt.Printf(
 		"Threads %d\tSuccessfull %d (%.2f/s)\tFailed %d (%.2f%%)\tAvg time %dms\n",
 		rs.ParallelRequests,
-		rs.SuccessCount, float32(rs.SuccessCount)/float32(rs.TimeToRun),
+		rs.SuccessCount, rs.SuccessfulRequestsPerSecond(),
 		rs.FailCount, float32(rs.FailCount)/float32(rs.TotalCount)*100,
 		int(rs.AverageResponse/time.Millisecond),
 	)
@@ -134,10 +144,10 @@ func printStats(rs *RequestSet) {
 
 func main() {
 	var lastRs *RequestSet = nil
-	for i := 256; ; i *= 2 {
+	for i := 1; ; i *= 2 {
 		rs := RequestSet{
 			ParallelRequests: i,
-			TimeToRun:        5,
+			TimeToRun:        10,
 		}
 		rs.run()
 		printStats(&rs)
