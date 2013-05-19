@@ -22,7 +22,7 @@ type Requester struct {
 	client *http.Client
 }
 
-func (r *Requester) start(requestDone chan bool) {
+func (r *Requester) start(requestDone chan bool, rg RequestGenerator) {
 	r.client = &http.Client{}
 	startTime := time.Now()
 	for {
@@ -33,7 +33,7 @@ func (r *Requester) start(requestDone chan bool) {
 			return
 
 		default:
-			req, err := http.NewRequest("GET", "http://localhost/sleep.php", nil)
+			req, err := rg.GenerateRequest()
 			r.totalCount++
 
 			if err != nil {
@@ -81,14 +81,14 @@ type RequestSet struct {
 	AverageResponse time.Duration
 }
 
-func (rs *RequestSet) run() {
+func (rs *RequestSet) run(rg RequestGenerator) {
 	rs.requesters = make([]Requester, rs.ParallelRequests)
 	rs.requestDone = make(chan bool, rs.ParallelRequests)
 
 	for i := 0; i < rs.ParallelRequests; i++ {
 		req := &rs.requesters[i]
 		req.stopChan = make(chan bool, 1)
-		go req.start(rs.requestDone)
+		go req.start(rs.requestDone, rg)
 		rs.runningRequests++
 	}
 
@@ -144,12 +144,14 @@ func printStats(rs *RequestSet) {
 
 func main() {
 	var lastRs *RequestSet = nil
+	generator := StaticRequestGenerator{"http://localhost/sleep.php"}
+
 	for i := 1; ; i *= 2 {
 		rs := RequestSet{
 			ParallelRequests: i,
 			TimeToRun:        10,
 		}
-		rs.run()
+		rs.run(&generator)
 		printStats(&rs)
 
 		if lastRs != nil && lastRs.SuccessCount > rs.SuccessCount {
