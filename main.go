@@ -3,6 +3,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -49,6 +51,7 @@ func (r *Requester) start(requestDone chan bool, rg RequestGenerator) {
 				r.failCount++
 				continue
 			}
+			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
 
 			reqEnd := time.Now()
