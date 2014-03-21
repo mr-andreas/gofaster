@@ -61,7 +61,11 @@ func (r *Requester) start(requestDone chan bool, rg RequestGenerator) {
 			allTimes := int64(r.averageResponse) * int64(r.successCount)
 			r.averageResponse = int((allTimes + int64(micS)) / int64(r.successCount+1))
 
-			r.successCount++
+			if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
+				r.successCount++
+			} else {
+				r.failCount++
+			}
 		}
 	}
 }
