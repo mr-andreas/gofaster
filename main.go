@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"runtime"
 	"time"
 )
 
@@ -150,6 +151,8 @@ func printStats(rs *RequestSet) {
 }
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	var lastRs *RequestSet = nil
 	generator := StaticRequestGenerator{"http://localhost/sleep.php"}
 
